@@ -1,0 +1,323 @@
+---
+title: "Side-by-Side comparison of Ibis and dplyr"
+format:
+  html:
+    toc: true
+    html-math-method: katex
+engine: knitr
+---
+
+## Loading the starwars dataset
+
+:::: {.grid}
+
+::: {.g-col-6}
+
+### Ibis
+
+```{python}
+import ibis
+import ibis.examples as ex
+import ibis.selectors as s
+from ibis import _
+ibis.options.interactive = True
+
+starwars = ex.starwars.fetch()
+starwars.head()
+```
+:::
+  
+::: {.g-col-6}
+
+### dplyr
+
+```{r}
+library(dplyr)
+head(starwars)
+```
+:::
+
+::::  
+
+<!-----
+::::::: {.grid}
+::: {.g-col-6}
+
+```{python}
+```
+:::
+
+
+:::{.g-col-6}
+```{r}
+```
+:::
+
+:::::::
+---->
+
+
+## Filter
+
+
+::::::: {.grid}
+::: {.g-col-6}
+
+```{python}
+(
+    starwars
+    .filter([_.skin_color == "light", _.eye_color == "brown"])
+)
+```
+:::
+
+:::{.g-col-6}
+```{r}
+starwars %>%
+  filter(skin_color == "light", eye_color == "brown")
+```
+:::
+:::::::
+
+## Arrange
+
+::::::: {.grid}
+::: {.g-col-6}
+
+```{python}
+(
+    starwars
+    .order_by([_.height, _.mass])
+)
+
+(
+    starwars
+    .order_by(_.height.desc())
+)
+
+
+## or
+(
+    starwars
+    .order_by(ibis.desc("height"))
+)
+```
+:::
+
+
+:::{.g-col-6}
+```{r}
+starwars %>%
+  arrange(height, mass)
+starwars %>%
+  arrange(desc(height))
+```
+:::
+    
+:::::::
+
+## Slices
+
+
+::::::: {.grid}
+::: {.g-col-6}
+
+```{python}
+(
+    starwars
+    .limit(5, offset = 4)
+)
+
+starwars.head(n = 3)
+
+# slice_sample not yet implemented
+# slice_min/slice_max not yet implemented
+```
+:::
+
+
+:::{.g-col-6}
+```{r}
+starwars %>% slice(5:10)
+starwars %>% slice_head(n = 3)
+starwars %>% slice_sample(n = 5)
+starwars %>% slice_sample(prop = 0.1)
+starwars %>%
+  filter(!is.na(height)) %>%
+  slice_max(height, n = 3)
+```
+:::
+
+:::::::
+
+
+## Select columns
+
+::::::: {.grid}
+::: {.g-col-6}
+
+```{python}
+# Select columns by name
+(
+    starwars
+    .select(_.hair_color, _.skin_color, _.eye_color)
+)
+
+## or
+(
+    starwars
+    .select("hair_color", "skin_color", "eye_color")
+)
+
+# Select all columns between hair_color and eye_color (inclusive)
+#starwars %>% select(hair_color:eye_color)
+
+# Select all columns except those from hair_color to eye_color (inclusive)
+#starwars %>% select(!(hair_color:eye_color))
+
+# Select all columns ending with color
+(
+    starwars
+    .select(s.endswith("color"))
+)
+
+# Rename and only keep this column
+(
+    starwars
+    .select(home_world = _.homeworld)
+)
+
+# Rename and keep all the columns
+(
+    starwars
+    .relabel({"homeworld": "home_world"})
+)
+```
+:::
+
+
+:::{.g-col-6}
+```{r}
+# Select columns by name
+starwars %>% select(hair_color, skin_color, eye_color)
+# Select all columns between hair_color and eye_color (inclusive)
+starwars %>% select(hair_color:eye_color)
+# Select all columns except those from hair_color to eye_color (inclusive)
+starwars %>% select(!(hair_color:eye_color))
+# Select all columns ending with color
+starwars %>% select(ends_with("color"))
+
+starwars %>% select(home_world = homeworld)
+starwars %>% rename(home_world = homeworld)
+
+```
+:::
+
+:::::::
+
+## Adding new columns with mutate
+
+::::::: {.grid}
+::: {.g-col-6}
+
+```{python}
+(
+    starwars
+    .mutate(height_m = _.height / 100)
+    .select("height_m", "height", ~s.contains("height"))
+)
+
+
+# mutate can only use existing columns
+(
+    starwars
+    .mutate(
+        height_m = _.height / 100
+    )
+    .mutate(        
+        BMI = _.mass / (_.height_m**2)
+    )
+    .select("BMI", ~s.matches("BMI"))
+)
+
+```
+:::
+
+
+:::{.g-col-6}
+```{r}
+starwars %>%
+  mutate(height_m = height / 100) %>%
+  select(height_m, height, everything())
+
+starwars %>%
+  mutate(
+    height_m = height / 100,
+    BMI = mass / (height_m^2)
+  ) %>%
+  select(BMI, everything())
+```
+:::
+
+:::::::
+
+## relocate
+
+
+
+## summarise
+
+::::::: {.grid}
+::: {.g-col-6}
+
+```{python}
+(
+    starwars
+    .aggregate(height = _.height.mean())
+)
+```
+:::
+
+
+:::{.g-col-6}
+```{r}
+starwars %>% summarise(height = mean(height, na.rm = TRUE))
+```
+:::
+
+:::::::
+
+
+
+## Combining operations
+
+
+::::::: {.grid}
+::: {.g-col-6}
+
+```{python}
+(
+    starwars
+    .group_by([_.species, _.sex])
+    .aggregate(
+        height = _.height.mean(),
+        mass = _.mass.mean()
+    )
+)
+```
+:::
+
+
+:::{.g-col-6}
+```{r}
+starwars %>%
+  group_by(species, sex) %>%
+  select(height, mass) %>%
+  summarise(
+    height = mean(height, na.rm = TRUE),
+    mass = mean(mass, na.rm = TRUE)
+  )
+```
+:::
+
+:::::::
